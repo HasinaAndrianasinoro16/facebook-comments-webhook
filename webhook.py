@@ -1,14 +1,9 @@
-"""Routes du webhook Facebook."""
-
-import json
-
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 
-from extractor import extract_comments
 from security import verify_signature, verify_token
-from storage import store
+from storage import dump_raw
 
 router = APIRouter(prefix="/webhook/facebook", tags=["facebook"])
 
@@ -28,25 +23,15 @@ def verify_webhook(
 
 @router.post("")
 async def receive_webhook(request: Request):
-    """Réception des événements (nouveaux commentaires, modifications, suppressions)."""
+    """Reçoit un événement de Facebook et l'enregistre tel quel dans le fichier .dmp."""
     raw_body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256", "")
 
+    # Seules les requêtes réellement envoyées par Facebook sont conservées
     if not verify_signature(raw_body, signature):
         raise HTTPException(status_code=401, detail="Invalid Facebook signature")
 
-    try:
-        payload = json.loads(raw_body)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+    # Aucune lecture, aucun filtre, aucune modification du contenu
+    await run_in_threadpool(dump_raw, raw_body)
 
-    if payload.get("object") != "page":
-        return {"status": "ignored"}
-
-    records = list(extract_comments(payload))
-
-    if records:
-        # Écriture disque hors de la boucle asyncio pour ne pas la bloquer
-        await run_in_threadpool(store.upsert_many, records)
-
-    return {"status": "received", "processed": len(records)}
+    return {"status": "received"}

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config import validate_config
-from storage import store
+from storage import init_storage
 from webhook import router as webhook_router
 
 logging.basicConfig(
@@ -16,11 +16,11 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_config()
-    store.load()
+    init_storage()
     yield
 
 
-app = FastAPI(title="Facebook Commentaire Webhook", lifespan=lifespan)
+app = FastAPI(title="Facebook Webhook Dump", lifespan=lifespan)
 app.include_router(webhook_router)
 
 
@@ -32,5 +32,4 @@ def health():
 if __name__ == "__main__":
     import uvicorn
 
-    # Un seul worker : l'index en mémoire et le verrou ne sont pas partagés entre processus.
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

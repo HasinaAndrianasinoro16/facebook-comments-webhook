@@ -1,3 +1,5 @@
+"""Point d'entrée : webhook Facebook (dump brut + texte des commentaires)."""
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -11,6 +13,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
+# Évite d'afficher chaque requête sortante dans les logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
@@ -20,7 +24,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Facebook Webhook Dump", lifespan=lifespan)
+app = FastAPI(title="Facebook Webhook", lifespan=lifespan)
 app.include_router(webhook_router)
 
 

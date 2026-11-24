@@ -1,11 +1,6 @@
+"""Fonctions utilitaires."""
+
 from datetime import datetime, timezone
-
-
-def csv_safe(value):
-    """Empêche l'injection de formules lors de l'ouverture du CSV dans Excel."""
-    if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r")):
-        return "'" + value
-    return value
 
 
 def to_iso(timestamp) -> str | None:
@@ -20,4 +15,4 @@ def to_iso(timestamp) -> str | None:
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat() 
+    return datetime.now(timezone.utc).isoformat()

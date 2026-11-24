@@ -1,7 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, Request
+"""Routes du webhook Facebook."""
+
+import json
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 
+from comments import process_comments
 from security import verify_signature, verify_token
 from storage import dump_raw
 
@@ -22,8 +27,8 @@ def verify_webhook(
 
 
 @router.post("")
-async def receive_webhook(request: Request):
-    """Reçoit un événement de Facebook et l'enregistre tel quel dans le fichier .dmp."""
+async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
+    """Enregistre la requête telle quelle, puis récupère le texte des commentaires."""
     raw_body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256", "")
 
@@ -31,7 +36,16 @@ async def receive_webhook(request: Request):
     if not verify_signature(raw_body, signature):
         raise HTTPException(status_code=401, detail="Invalid Facebook signature")
 
-    # Aucune lecture, aucun filtre, aucune modification du contenu
+    # 1. Dump brut : aucune lecture, aucun filtre, aucune modification
     await run_in_threadpool(dump_raw, raw_body)
+
+    # 2. Récupération du texte des commentaires, après la réponse à Facebook
+    try:
+        payload = json.loads(raw_body)
+    except ValueError:
+        payload = None
+
+    if payload:
+        background_tasks.add_task(process_comments, payload)
 
     return {"status": "received"}

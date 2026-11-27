@@ -1,11 +1,9 @@
-"""Traitement des commentaires : récupération du texte puis enregistrement."""
-
 import logging
 
 from fastapi.concurrency import run_in_threadpool
 
 from extractor import extract_comment_events
-from graph import fetch_comment
+from graph import fetch_comment, fetch_post
 from storage import save_message
 from utils import to_iso, utc_now_iso
 
@@ -29,6 +27,7 @@ async def _process_one(value: dict) -> None:
     # Un commentaire supprimé n'est plus lisible : on n'interroge pas l'API.
     message = value.get("message")
     attachment = None
+    post_message = None
 
     if message is None and verb != "remove":
         details = await fetch_comment(comment_id)
@@ -36,11 +35,18 @@ async def _process_one(value: dict) -> None:
             message = details.get("message")
             attachment = details.get("attachment")
 
+    # Description de la publication commentée (absente du webhook, demandée à l'API Graph)
+    if verb != "remove":
+        post = await fetch_post(value.get("post_id"))
+        if post:
+            post_message = post.get("message")
+
     sender = value.get("from") or {}
 
     record = {
         "comment_id": comment_id,
         "post_id": value.get("post_id"),
+        "post_message": post_message,
         "parent_id": value.get("parent_id"),
         "sender_id": sender.get("id"),
         "sender_name": sender.get("name"),
